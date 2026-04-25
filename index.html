@@ -209,21 +209,22 @@ let ALL_DATES = [];
 let ALL_CUSTS = [];
 
 async function initializeApp() {
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
-        msalInstance.setActiveAccount(accounts[0]);
-        fetchExcelData();
-    } else {
-        document.getElementById('statusText').innerText = "Awaiting Microsoft Sign-in...";
-        try {
+    try {
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length > 0) {
+            msalInstance.setActiveAccount(accounts[0]);
+            fetchExcelData();
+        } else {
+            document.getElementById('statusText').innerText = "Awaiting Microsoft Sign-in... (Check for pop-ups)";
             const loginResponse = await msalInstance.loginPopup({ scopes: ["Files.Read.All", "User.Read"] });
             msalInstance.setActiveAccount(loginResponse.account);
             fetchExcelData();
-        } catch (err) {
-            console.error("Login failed:", err);
-            document.getElementById('statusText').innerText = "Sign-in failed. Please refresh.";
-            alert("Please allow popups to sign in to Microsoft 365 and view data.");
         }
+    } catch (err) {
+        console.error("Dashboard Error:", err);
+        // This will print the exact exact technical error to your screen instead of getting stuck
+        document.getElementById('statusText').innerText = "ERROR: " + err.message;
+        document.getElementById('statusText').style.color = "red";
     }
 }
 
