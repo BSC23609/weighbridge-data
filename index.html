@@ -209,8 +209,6 @@ let ALL_DATES = [];
 let ALL_CUSTS = [];
 
 async function initializeApp() {
-    await msalInstance.initialize();
-    
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length > 0) {
         msalInstance.setActiveAccount(accounts[0]);
