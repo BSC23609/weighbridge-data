@@ -137,7 +137,7 @@
       <div class="kpi-sub">From W-IN to W-OUT</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Avg Billing Delay</div>
+      <div class="kpi-label">Avg Billing Time</div>
       <div class="kpi-value"><span id="kpiBTime">0</span><span class="kpi-unit">min</span></div>
       <div class="kpi-sub">From W-OUT to Bill Time</div>
     </div>
@@ -181,7 +181,7 @@
             <th>Inv No</th>
             <th>Bill Time</th>
             <th class="num">W-Time (min)</th>
-            <th class="num">B-Delay (min)</th>
+            <th class="num">B-Time (min)</th>
           </tr>
         </thead>
         <tbody id="tblBody"></tbody>
@@ -338,7 +338,7 @@ function parseLiveExcelData(graphRows) {
             bill: billStr,
             inv: inv || "-",
             wTime: Math.max(0, woutM - winM),
-            bDelay: Math.max(0, billM - woutM),
+            bTime: Math.max(0, billM - woutM),
             totalTime: Math.max(0, billM - winM)
         };
     });
@@ -430,7 +430,7 @@ function buildCharts(){
     type:'bar',
     data:{labels:[],datasets:[
       {label:'W-Time',data:[],backgroundColor:'#002b5f',borderRadius:2},
-      {label:'B-Delay',data:[],backgroundColor:'#C9A94E',borderRadius:2}
+      {label:'B-Time',data:[],backgroundColor:'#C9A94E',borderRadius:2}
     ]},
     options:{...common,responsive:true,maintainAspectRatio:false,plugins:{...common.plugins,legend:{display:true,position:'top',labels:{color:'#6c757d',font:{family:'JetBrains Mono',size:10},boxWidth:10}}}}
   });
@@ -454,7 +454,7 @@ function update(){
     ['kpiWTime','kpiBTime','kpiTotal','kpiCount'].forEach(id=>document.getElementById(id).textContent='0');
   } else {
     const sw = rows.reduce((a,r)=>a+r.wTime,0)/n;
-    const sb = rows.reduce((a,r)=>a+r.bDelay,0)/n;
+    const sb = rows.reduce((a,r)=>a+r.bTime,0)/n;
     const st = rows.reduce((a,r)=>a+r.totalTime,0)/n;
     document.getElementById('kpiWTime').textContent = fmtTime(sw);
     document.getElementById('kpiBTime').textContent = fmtTime(sb);
@@ -470,7 +470,7 @@ function update(){
   rows.forEach(r=>{
     if(!byDate[r.date]) byDate[r.date]={w:0,b:0,n:0};
     byDate[r.date].w += r.wTime;
-    byDate[r.date].b += r.bDelay;
+    byDate[r.date].b += r.bTime;
     byDate[r.date].n++;
   });
   const dLabels = Object.keys(byDate).sort((a,b)=>{
@@ -510,7 +510,7 @@ function update(){
       <td>${r.inv}</td>
       <td>${r.bill}</td>
       <td class="num">${r.wTime}</td>
-      <td class="num">${r.bDelay}</td>
+      <td class="num">${r.bTime}</td>
     `;
     tbody.appendChild(tr);
   });
