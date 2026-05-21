@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Vehicle Movement Tracking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --panel: #ffffff;
+    --panel-2: #e9ecef;
+    --ink: #1a1d20;
+    --muted: #6c757d;
+    --line: #dee2e6;
+    --accent: #002b5f;
+    --accent-2: #C9A94E;
+    --accent-3: #0071ad;
+    --accent-4: #2a9d8f;
+    --danger: #dc3545;
+    --warning: #f0ad4e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 13px; min-height: 100vh; }
+  body {
+    background-image:
+      radial-gradient(ellipse at 10% 0%, rgba(0, 43, 95, .04), transparent 40%),
+      radial-gradient(ellipse at 90% 100%, rgba(201, 169, 78, .04), transparent 40%);
+  }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 28px 32px 60px; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--line); padding-bottom: 22px; margin-bottom: 26px; flex-wrap: wrap; gap: 20px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo-img { height: 54px; width: auto; object-fit: contain; }
+  h1 { font-family: 'Fraunces', serif; font-weight: 800; font-size: 30px; letter-spacing: -.5px; line-height: 1; color: var(--ink); }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 2px; margin-top: 6px; }
+  .meta { text-align: right; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .meta b { color: var(--ink); font-weight: 600; }
+
+  .filters { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 20px; margin-bottom: 22px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 18px; align-items: start; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  .filter-group label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin-bottom: 10px; font-weight: 600;}
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; max-height: 96px; overflow-y: auto; padding-right: 4px; }
+  .chip-row::-webkit-scrollbar { width: 6px; }
+  .chip-row::-webkit-scrollbar-track { background: var(--panel-2); }
+  .chip-row::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+  .chip { background: var(--panel-2); border: 1px solid transparent; color: var(--ink); padding: 6px 12px; border-radius: 2px; font-size: 11px; cursor: pointer; transition: all .15s; font-family: inherit; white-space: nowrap; }
+  .chip:hover { border-color: var(--accent); }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 500; }
+  .search-input { width: 100%; background: var(--panel-2); border: 1px solid transparent; color: var(--ink); padding: 8px 12px; font-family: inherit; font-size: 12px; border-radius: 2px; margin-bottom: 8px; outline: none; }
+  .search-input:focus { border-color: var(--accent); background: var(--panel); }
+  .btn-col { display: flex; flex-direction: column; gap: 8px; align-self: end; }
+  .reset-btn, .refresh-btn { padding: 10px 18px; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; cursor: pointer; border-radius: 2px; transition: all .15s; font-weight: 600; white-space: nowrap; }
+  .reset-btn { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+  .reset-btn:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .refresh-btn { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
+  .refresh-btn:hover { background: #001a3a; border-color: #001a3a; }
+  .refresh-btn:disabled { opacity: .5; cursor: wait; }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 22px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 20px; position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  .kpi::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent); }
+  .kpi:nth-child(2)::before { background: var(--accent-2); }
+  .kpi:nth-child(3)::before { background: var(--accent-3); }
+  .kpi:nth-child(4)::before { background: var(--accent-4); }
+  .kpi:nth-child(5)::before { background: var(--muted); }
+  .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin-bottom: 12px; font-weight: 600; }
+  .kpi-value { font-family: 'Fraunces', serif; font-weight: 800; font-size: 36px; line-height: 1; letter-spacing: -1px; color: var(--accent); }
+  .kpi-unit { font-size: 14px; color: var(--muted); margin-left: 4px; font-weight: 400; font-family: 'JetBrains Mono', monospace; }
+  .kpi-sub { font-size: 10px; color: var(--muted); margin-top: 10px; letter-spacing: .5px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 22px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  .panel-title { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; margin-bottom: 4px; color: var(--accent); }
+  .panel-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin-bottom: 18px; }
+  .chart-wrap { position: relative; height: 280px; }
+
+  .table-wrap { max-height: 480px; overflow: auto; border: 1px solid var(--line); border-radius: 2px; }
+  .table-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+  .table-wrap::-webkit-scrollbar-track { background: var(--panel-2); }
+  .table-wrap::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { position: sticky; top: 0; background: var(--panel-2); text-align: left; padding: 9px 10px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1.2px; font-size: 9.5px; border-bottom: 1px solid var(--line); z-index: 1; white-space: nowrap; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
+  tr:hover td { background: var(--panel-2); }
+  .num { font-variant-numeric: tabular-nums; text-align: right; }
+  .badge { display: inline-block; background: var(--bg); border: 1px solid var(--line); padding: 3px 8px; border-radius: 2px; font-size: 10px; color: var(--ink); font-weight: 500; }
+  .status-completed { color: #2a9d8f; font-weight: 600; }
+  .status-pending { color: var(--warning); font-weight: 600; }
+  .row-pending { background: rgba(240, 173, 78, .06); }
+
+  @media(max-width:1100px) {
+    .filters { grid-template-columns: 1fr 1fr; }
+    .kpis { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media(max-width:760px) {
+    .grid, .grid-3 { grid-template-columns: 1fr; }
+    .filters { grid-template-columns: 1fr; }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <img src="BSC.png" alt="Bharat Steel Logo" class="logo-img" onerror="this.style.display='none'"/>
+      <div>
+        <h1>Vehicle Movement <span>Tracking</span></h1>
+        <div class="sub" id="statusText">Loading data...</div>
+      </div>
+    </div>
+    <div class="meta">
+      Report Window · <b id="dateRange">—</b><br/>
+      Total Trips · <b id="totalTrips">—</b><br/>
+      Last Updated · <b id="lastUpdated">—</b>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label>📅 Date</label>
+      <div class="chip-row" id="dateChips"></div>
+    </div>
+    <div class="filter-group">
+      <label>🏢 Customer</label>
+      <input type="text" class="search-input" id="custSearch" placeholder="Search..."/>
+      <div class="chip-row" id="custChips"></div>
+    </div>
+    <div class="filter-group">
+      <label>👤 Sales Employee</label>
+      <input type="text" class="search-input" id="empSearch" placeholder="Search..."/>
+      <div class="chip-row" id="empChips"></div>
+    </div>
+    <div class="filter-group">
+      <label>📍 Branch</label>
+      <div class="chip-row" id="branchChips"></div>
+    </div>
+    <div class="btn-col">
+      <button class="refresh-btn" id="refreshBtn">Refresh</button>
+      <button class="reset-btn" id="resetBtn">Reset All</button>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="kpi-label">Avg Weighbridge Time</div>
+      <div class="kpi-value"><span id="kpiWTime">0</span><span class="kpi-unit">min</span></div>
+      <div class="kpi-sub">In → Out</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Avg Billing Time</div>
+      <div class="kpi-value"><span id="kpiBTime">0</span><span class="kpi-unit">min</span></div>
+      <div class="kpi-sub">Out → Invoice</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total Cycle Time</div>
+      <div class="kpi-value"><span id="kpiTotal">0</span><span class="kpi-unit">min</span></div>
+      <div class="kpi-sub">In → Invoice</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total Tonnage</div>
+      <div class="kpi-value"><span id="kpiTonnage">0</span><span class="kpi-unit">MT</span></div>
+      <div class="kpi-sub">Sum of Net Weight</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Trips</div>
+      <div class="kpi-value"><span id="kpiCount">0</span></div>
+      <div class="kpi-sub">Completed · <span id="kpiPending">0</span> pending</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">Daily Averages</div>
+      <div class="panel-sub">Avg minutes per day · completed only</div>
+      <div class="chart-wrap"><canvas id="dailyChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Top Customers by Avg Cycle Time</div>
+      <div class="panel-sub">Top 10 · sorted by In → Invoice</div>
+      <div class="chart-wrap"><canvas id="custChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="panel">
+      <div class="panel-title">Daily Tonnage</div>
+      <div class="panel-sub">Total Net Weight (MT) per day</div>
+      <div class="chart-wrap"><canvas id="tonDailyChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Top Customers by Tonnage</div>
+      <div class="panel-sub">Top 10 · sum of Net Weight (MT)</div>
+      <div class="chart-wrap"><canvas id="tonCustChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Trip Records</div>
+    <div class="panel-sub">Filtered data · <span id="tblCount">0</span> rows</div>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Vehicle</th>
+            <th>Customer</th>
+            <th>Sales Emp</th>
+            <th>Branch</th>
+            <th>In</th>
+            <th>Out</th>
+            <th>Invoice</th>
+            <th>Invoice #</th>
+            <th class="num">Net Wt</th>
+            <th class="num">W-Time</th>
+            <th class="num">B-Time</th>
+          </tr>
+        </thead>
+        <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============ CONFIG ============
+const DATA_URL = 'data.xlsx';
+const SHEET_NAME_PREFERRED = null;  // null = auto-pick first sheet
+const MAX_VALID_MINUTES = 720;       // 12 hours - drop rows above this from KPIs/charts (data entry errors)
+
+let DATA = [];
+let ALL_DATES = [];
+let ALL_CUSTS = [];
+let ALL_EMPS  = [];
+let ALL_BRANCHES = [];
+
+// ============ FETCH & PARSE ============
+async function loadData() {
+  const statusEl = document.getElementById('statusText');
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  statusEl.innerText = 'Loading latest data...';
+  statusEl.style.color = 'var(--muted)';
+
+  try {
+    const url = `${DATA_URL}?t=${Date.now()}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+
+    const buf = await res.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+
+    const sheetName = SHEET_NAME_PREFERRED && wb.Sheets[SHEET_NAME_PREFERRED]
+      ? SHEET_NAME_PREFERRED
+      : wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+
+    // Read as objects keyed by header row, so column order doesn't matter
+    const rows = XLSX.utils.sheet_to_json(ws, { raw: true, defval: null });
+
+    parseRows(rows);
+
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent =
+      now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    statusEl.innerText = `Data loaded · sheet "${sheetName}"`;
+    statusEl.style.color = 'green';
+  } catch (err) {
+    console.error(err);
+    statusEl.innerText = 'ERROR: ' + err.message;
+    statusEl.style.color = 'red';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ============ HELPERS ============
+
+// Trim & lowercase column lookup so "Vehile No" typo or stray spaces still work
+function getCol(row, ...candidates) {
+  const keys = Object.keys(row);
+  for (const cand of candidates) {
+    const candNorm = cand.toLowerCase().replace(/\s+/g, ' ').trim();
+    for (const k of keys) {
+      const kNorm = String(k).toLowerCase().replace(/\s+/g, ' ').trim();
+      if (kNorm === candNorm) return row[k];
+    }
+  }
+  return null;
+}
+
+// Date can arrive as "02-05-2026" text or as an Excel serial number
+function formatDate(raw) {
+  if (raw == null || raw === '') return 'Unknown';
+
+  // Already DD-MM-YYYY text
+  if (typeof raw === 'string') {
+    const m = raw.trim().match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
+    if (m) {
+      const day = m[1].padStart(2, '0');
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const mon = months[parseInt(m[2], 10) - 1] || '???';
+      const yr = m[3].length === 2 ? m[3] : m[3].slice(-2);
+      return `${day}-${mon}-${yr}`;
+    }
+    return raw;
+  }
+
+  // Excel serial
+  if (typeof raw === 'number') {
+    const d = new Date(Math.round((raw - 25569) * 86400 * 1000));
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const mon = months[d.getUTCMonth()];
+    const yr = String(d.getUTCFullYear()).slice(-2);
+    return `${day}-${mon}-${yr}`;
+  }
+
+  return String(raw);
+}
+
+// Sort key for "DD-MMM-YY"
+function dateSortKey(s) {
+  const parts = String(s).split('-');
+  if (parts.length < 3) return 0;
+  const day = parseInt(parts[0], 10);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mon = months.indexOf(parts[1]);
+  const yr = 2000 + parseInt(parts[2], 10);
+  return new Date(yr, mon, day).getTime();
+}
+
+// Time can be "HH:MM", "H:MM", or an Excel serial
+function formatTime(raw) {
+  if (raw == null || raw === '') return '';
+  if (typeof raw === 'number') {
+    const totalMins = Math.round(raw * 24 * 60);
+    const h = Math.floor(totalMins / 60) % 24;
+    const m = totalMins % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+  const s = String(raw).trim();
+  const parts = s.split(':');
+  if (parts.length >= 2) {
+    const h = parts[0].padStart(2,'0');
+    const m = parts[1].padStart(2,'0');
+    return `${h}:${m}`;
+  }
+  return s;
+}
+
+// Convert anything to minutes-since-midnight
+function toMin(raw) {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'number') return Math.round(raw * 24 * 60);
+  const s = String(raw).trim();
+  if (!s) return null;
+  const parts = s.split(':');
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+// Diff with overnight wrap: if 'to' is before 'from', assume next day (cap by validity check downstream)
+function diffMin(fromMin, toMin) {
+  if (fromMin == null || toMin == null) return null;
+  let d = toMin - fromMin;
+  if (d < 0) d += 24 * 60;   // wrap past midnight
+  return d;
+}
+
+// ============ PARSE ROWS ============
+function parseRows(rows) {
+  DATA = rows
+    .filter(r => r && Object.keys(r).length > 0)
+    .map(r => {
+      const dateRaw   = getCol(r, 'CreateDate', 'Create Date', 'Date');
+      const customer  = (getCol(r, 'Customer Name', 'Customer') || 'Unknown').toString().trim();
+      const inRaw     = getCol(r, 'In Time', 'In  Time');
+      const outRaw    = getCol(r, 'Out Time', 'Out  Time');
+      const invTime   = getCol(r, 'Invoice Time');
+      const invNo     = getCol(r, 'Invoice No');
+      const veh       = (getCol(r, 'Vehile No', 'Vehicle No', 'Vehicle') || '-').toString().trim();
+      const emp       = (getCol(r, 'Sales Employee Name', 'Sales Employee') || '-').toString().trim();
+      const branch    = (getCol(r, 'Branch') || '-').toString().trim();
+      const wbStatus  = (getCol(r, 'Weigh Bridge Status', 'Status') || '').toString().trim();
+      const netWt     = parseFloat(getCol(r, 'Net Weight')) || 0;
+
+      const inMin  = toMin(inRaw);
+      const outMin = toMin(outRaw);
+      const invMin = toMin(invTime);
+
+      const wTimeRaw = diffMin(inMin, outMin);
+      const bTimeRaw = diffMin(outMin, invMin);
+      const tTimeRaw = diffMin(inMin, invMin);
+
+      const isPending = wbStatus.toLowerCase() === 'pending' || outMin == null || invMin == null;
+
+      // Validity for KPIs: not pending AND all three values exist AND within sane bound
+      const valid = !isPending
+                 && wTimeRaw != null && wTimeRaw <= MAX_VALID_MINUTES
+                 && bTimeRaw != null && bTimeRaw <= MAX_VALID_MINUTES
+                 && tTimeRaw != null && tTimeRaw <= MAX_VALID_MINUTES;
+
+      return {
+        date: formatDate(dateRaw),
+        dateKey: dateSortKey(formatDate(dateRaw)),
+        veh,
+        customer,
+        emp,
+        branch,
+        wbStatus: isPending ? 'Pending' : 'Completed',
+        inTime:  formatTime(inRaw),
+        outTime: formatTime(outRaw),
+        invTime: formatTime(invTime),
+        invNo: invNo || '-',
+        netWt,
+        wTime: wTimeRaw,
+        bTime: bTimeRaw,
+        tTime: tTimeRaw,
+        valid
+      };
+    });
+
+  // Distinct sorted dimension lists
+  ALL_DATES    = [...new Set(DATA.map(d => d.date))].sort((a,b) => dateSortKey(a) - dateSortKey(b));
+  ALL_CUSTS    = [...new Set(DATA.map(d => d.customer))].filter(Boolean).sort();
+  ALL_EMPS     = [...new Set(DATA.map(d => d.emp))].filter(e => e && e !== '-').sort();
+  ALL_BRANCHES = [...new Set(DATA.map(d => d.branch))].filter(b => b && b !== '-').sort();
+
+  if (!dailyChart) buildCharts();
+  update();
+}
+
+// ============ STATE ============
+const STATE = {
+  selectedDates: new Set(),
+  selectedCusts: new Set(),
+  selectedEmps: new Set(),
+  selectedBranches: new Set(),
+  custFilter: '',
+  empFilter: ''
+};
+
+// ============ CHIPS ============
+function renderChips(container, values, selectedSet, filterText) {
+  container.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = 'chip' + (selectedSet.size === 0 ? ' active' : '');
+  allBtn.textContent = 'ALL';
+  allBtn.onclick = () => { selectedSet.clear(); update(); };
+  container.appendChild(allBtn);
+  const filter = (filterText || '').toLowerCase();
+  values.filter(v => !filter || String(v).toLowerCase().includes(filter)).forEach(v => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (selectedSet.has(v) ? ' active' : '');
+    b.textContent = v;
+    b.title = v;
+    b.onclick = () => {
+      if (selectedSet.has(v)) selectedSet.delete(v);
+      else selectedSet.add(v);
+      update();
+    };
+    container.appendChild(b);
+  });
+}
+
+// ============ FILTER ============
+function filtered() {
+  return DATA.filter(d => {
+    if (STATE.selectedDates.size && !STATE.selectedDates.has(d.date)) return false;
+    if (STATE.selectedCusts.size && !STATE.selectedCusts.has(d.customer)) return false;
+    if (STATE.selectedEmps.size && !STATE.selectedEmps.has(d.emp)) return false;
+    if (STATE.selectedBranches.size && !STATE.selectedBranches.has(d.branch)) return false;
+    return true;
+  });
+}
+
+// ============ CHARTS ============
+let dailyChart, custChart, tonDailyChart, tonCustChart;
+function rd(n) { return Math.round(n); }
+function rd2(n) { return Math.round(n * 100) / 100; }
+
+function buildCharts() {
+  const common = {
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: '#ffffff', titleColor: '#002b5f', bodyColor: '#6c757d', borderColor: '#dee2e6', borderWidth: 1, padding: 12, titleFont: { family: 'JetBrains Mono' }, bodyFont: { family: 'JetBrains Mono' } }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#6c757d', font: { family: 'JetBrains Mono', size: 10 } } },
+      y: { grid: { color: '#e9ecef' }, ticks: { color: '#6c757d', font: { family: 'JetBrains Mono', size: 10 } } }
+    }
+  };
+
+  dailyChart = new Chart(document.getElementById('dailyChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [
+      { label: 'W-Time', data: [], backgroundColor: '#002b5f', borderRadius: 2 },
+      { label: 'B-Time', data: [], backgroundColor: '#C9A94E', borderRadius: 2 }
+    ]},
+    options: { ...common, responsive: true, maintainAspectRatio: false,
+      plugins: { ...common.plugins, legend: { display: true, position: 'top', labels: { color: '#6c757d', font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } } }
+    }
+  });
+
+  custChart = new Chart(document.getElementById('custChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Avg Cycle (min)', data: [], backgroundColor: '#0071ad', borderRadius: 2 }] },
+    options: { ...common, indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+  });
+
+  tonDailyChart = new Chart(document.getElementById('tonDailyChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Tonnage (MT)', data: [], backgroundColor: '#2a9d8f', borderRadius: 2 }] },
+    options: { ...common, responsive: true, maintainAspectRatio: false }
+  });
+
+  tonCustChart = new Chart(document.getElementById('tonCustChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Tonnage (MT)', data: [], backgroundColor: '#C9A94E', borderRadius: 2 }] },
+    options: { ...common, indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+  });
+}
+
+// ============ UPDATE ============
+function update() {
+  if (DATA.length === 0) return;
+
+  // Re-render chips against full universe
+  renderChips(document.getElementById('dateChips'),   ALL_DATES,    STATE.selectedDates, '');
+  renderChips(document.getElementById('custChips'),   ALL_CUSTS,    STATE.selectedCusts, STATE.custFilter);
+  renderChips(document.getElementById('empChips'),    ALL_EMPS,     STATE.selectedEmps,  STATE.empFilter);
+  renderChips(document.getElementById('branchChips'), ALL_BRANCHES, STATE.selectedBranches, '');
+
+  const rows = filtered();
+  const validRows = rows.filter(r => r.valid);
+  const pendingCount = rows.filter(r => r.wbStatus === 'Pending').length;
+  const n = validRows.length;
+
+  // KPIs
+  if (n === 0) {
+    document.getElementById('kpiWTime').textContent  = '0';
+    document.getElementById('kpiBTime').textContent  = '0';
+    document.getElementById('kpiTotal').textContent  = '0';
+  } else {
+    document.getElementById('kpiWTime').textContent = rd(validRows.reduce((a,r)=>a+r.wTime,0)/n);
+    document.getElementById('kpiBTime').textContent = rd(validRows.reduce((a,r)=>a+r.bTime,0)/n);
+    document.getElementById('kpiTotal').textContent = rd(validRows.reduce((a,r)=>a+r.tTime,0)/n);
+  }
+  document.getElementById('kpiCount').textContent = n;
+  document.getElementById('kpiPending').textContent = pendingCount;
+  document.getElementById('kpiTonnage').textContent = rd2(rows.reduce((a,r)=>a+(r.netWt||0),0));
+
+  document.getElementById('totalTrips').textContent = rows.length;
+  document.getElementById('dateRange').textContent =
+    ALL_DATES.length ? `${ALL_DATES[0]} → ${ALL_DATES[ALL_DATES.length-1]}` : '—';
+
+  // ===== Daily time chart =====
+  const byDate = {};
+  validRows.forEach(r => {
+    if (!byDate[r.date]) byDate[r.date] = { w: 0, b: 0, n: 0 };
+    byDate[r.date].w += r.wTime;
+    byDate[r.date].b += r.bTime;
+    byDate[r.date].n++;
+  });
+  const dLabels = Object.keys(byDate).sort((a,b) => dateSortKey(a) - dateSortKey(b));
+  dailyChart.data.labels = dLabels;
+  dailyChart.data.datasets[0].data = dLabels.map(d => rd(byDate[d].w / byDate[d].n));
+  dailyChart.data.datasets[1].data = dLabels.map(d => rd(byDate[d].b / byDate[d].n));
+  dailyChart.update();
+
+  // ===== Customer cycle chart =====
+  const byCust = {};
+  validRows.forEach(r => {
+    if (!byCust[r.customer]) byCust[r.customer] = { t: 0, n: 0 };
+    byCust[r.customer].t += r.tTime;
+    byCust[r.customer].n++;
+  });
+  const cArr = Object.entries(byCust)
+    .map(([k,v]) => ({ k, avg: v.t / v.n }))
+    .sort((a,b) => b.avg - a.avg)
+    .slice(0, 10);
+  custChart.data.labels = cArr.map(x => x.k.length > 28 ? x.k.slice(0,26) + '…' : x.k);
+  custChart.data.datasets[0].data = cArr.map(x => rd(x.avg));
+  custChart.update();
+
+  // ===== Daily tonnage =====
+  const tonByDate = {};
+  rows.forEach(r => {
+    if (!tonByDate[r.date]) tonByDate[r.date] = 0;
+    tonByDate[r.date] += (r.netWt || 0);
+  });
+  const tdLabels = Object.keys(tonByDate).sort((a,b) => dateSortKey(a) - dateSortKey(b));
+  tonDailyChart.data.labels = tdLabels;
+  tonDailyChart.data.datasets[0].data = tdLabels.map(d => rd2(tonByDate[d]));
+  tonDailyChart.update();
+
+  // ===== Customer tonnage =====
+  const tonByCust = {};
+  rows.forEach(r => {
+    if (!tonByCust[r.customer]) tonByCust[r.customer] = 0;
+    tonByCust[r.customer] += (r.netWt || 0);
+  });
+  const tcArr = Object.entries(tonByCust)
+    .map(([k,v]) => ({ k, total: v }))
+    .sort((a,b) => b.total - a.total)
+    .slice(0, 10);
+  tonCustChart.data.labels = tcArr.map(x => x.k.length > 28 ? x.k.slice(0,26) + '…' : x.k);
+  tonCustChart.data.datasets[0].data = tcArr.map(x => rd2(x.total));
+  tonCustChart.update();
+
+  // ===== Table =====
+  const tbody = document.getElementById('tblBody');
+  tbody.innerHTML = '';
+  // Sort: newest date first, then by In time
+  const sortedRows = [...rows].sort((a,b) => {
+    if (b.dateKey !== a.dateKey) return b.dateKey - a.dateKey;
+    return (toMin(b.inTime) || 0) - (toMin(a.inTime) || 0);
+  });
+  sortedRows.slice(0, 1000).forEach(r => {
+    const tr = document.createElement('tr');
+    if (r.wbStatus === 'Pending') tr.className = 'row-pending';
+    const statusCls = r.wbStatus === 'Pending' ? 'status-pending' : 'status-completed';
+    tr.innerHTML = `
+      <td>${r.date}</td>
+      <td class="${statusCls}">${r.wbStatus}</td>
+      <td><span class="badge">${r.veh}</span></td>
+      <td>${r.customer}</td>
+      <td>${r.emp}</td>
+      <td>${r.branch}</td>
+      <td>${r.inTime || '—'}</td>
+      <td>${r.outTime || '—'}</td>
+      <td>${r.invTime || '—'}</td>
+      <td>${r.invNo}</td>
+      <td class="num">${r.netWt ? rd2(r.netWt) : '—'}</td>
+      <td class="num">${r.valid ? r.wTime : '—'}</td>
+      <td class="num">${r.valid ? r.bTime : '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('tblCount').textContent =
+    rows.length + (rows.length > 1000 ? ' (showing first 1000)' : '');
+}
+
+// ============ EVENTS ============
+document.getElementById('custSearch').addEventListener('input', e => {
+  STATE.custFilter = e.target.value;
+  renderChips(document.getElementById('custChips'), ALL_CUSTS, STATE.selectedCusts, STATE.custFilter);
+});
+document.getElementById('empSearch').addEventListener('input', e => {
+  STATE.empFilter = e.target.value;
+  renderChips(document.getElementById('empChips'), ALL_EMPS, STATE.selectedEmps, STATE.empFilter);
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  STATE.selectedDates.clear();
+  STATE.selectedCusts.clear();
+  STATE.selectedEmps.clear();
+  STATE.selectedBranches.clear();
+  STATE.custFilter = '';
+  STATE.empFilter  = '';
+  document.getElementById('custSearch').value = '';
+  document.getElementById('empSearch').value  = '';
+  update();
+});
+document.getElementById('refreshBtn').addEventListener('click', loadData);
+
+// Initial load
+loadData();
+</script>
+</body>
+</html>
