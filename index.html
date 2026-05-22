@@ -233,7 +233,7 @@
 <script>
 // ============ CONFIG ============
 const DATA_URL = 'Copy of data.xlsx';
-const SHEET_NAME_PREFERRED = null;  // null = auto-pick first sheet
+const SHEET_NAME_PREFERRED = 'Sheet2';  // data lives on Sheet2; falls back to first sheet if not found
 const MAX_VALID_MINUTES = 720;       // 12 hours - drop rows above this from KPIs/charts (data entry errors)
 
 let DATA = [];
