@@ -339,37 +339,54 @@ function dateSortKey(s) {
   return new Date(yr, mon, day).getTime();
 }
 
-// Time can be "HH:MM", "H:MM", or an Excel serial
+// Time can be:
+//   - HHMM packed integer (SAP style): 915 = 09:15, 1715 = 17:15, 0 = midnight
+//   - "HH:MM" / "H:MM" text string
+//   - Excel time fraction (0..1)
+// Returns "HH:MM" display string, or '' if blank.
 function formatTime(raw) {
-  if (raw == null || raw === '') return '';
-  if (typeof raw === 'number') {
-    const totalMins = Math.round(raw * 24 * 60);
-    const h = Math.floor(totalMins / 60) % 24;
-    const m = totalMins % 60;
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-  }
-  const s = String(raw).trim();
-  const parts = s.split(':');
-  if (parts.length >= 2) {
-    const h = parts[0].padStart(2,'0');
-    const m = parts[1].padStart(2,'0');
-    return `${h}:${m}`;
-  }
-  return s;
+  const mins = toMin(raw);
+  if (mins == null) return '';
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
-// Convert anything to minutes-since-midnight
+// Convert anything to minutes-since-midnight, or null if blank/invalid.
 function toMin(raw) {
   if (raw == null || raw === '') return null;
-  if (typeof raw === 'number') return Math.round(raw * 24 * 60);
+
+  if (typeof raw === 'number') {
+    // Excel time fraction (e.g. 0.381944 = 09:10)
+    if (raw > 0 && raw < 1) {
+      return Math.round(raw * 24 * 60);
+    }
+    // HHMM packed integer: 915 -> 9:15, 1715 -> 17:15, 0 -> 00:00
+    const n = Math.round(raw);
+    const h = Math.floor(n / 100);
+    const m = n % 100;
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) return h * 60 + m;
+    return null;
+  }
+
+  // String "HH:MM" or "H:MM"
   const s = String(raw).trim();
   if (!s) return null;
-  const parts = s.split(':');
-  if (parts.length < 2) return null;
-  const h = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  if (isNaN(h) || isNaN(m)) return null;
-  return h * 60 + m;
+  if (s.includes(':')) {
+    const parts = s.split(':');
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  }
+  // Numeric string without colon -> treat as HHMM
+  const num = parseInt(s, 10);
+  if (!isNaN(num)) {
+    const h = Math.floor(num / 100);
+    const m = num % 100;
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) return h * 60 + m;
+  }
+  return null;
 }
 
 // Diff with overnight wrap: if 'to' is before 'from', assume next day (cap by validity check downstream)
@@ -386,15 +403,15 @@ function parseRows(rows) {
     .filter(r => r && Object.keys(r).length > 0)
     .map(r => {
       const dateRaw   = getCol(r, 'CreateDate', 'Create Date', 'Date');
-      const customer  = (getCol(r, 'Customer Name', 'Customer') || 'Unknown').toString().trim();
+      const customer  = (getCol(r, 'U_VSPCN', 'Customer Name', 'Customer') || 'Unknown').toString().trim();
       const inRaw     = getCol(r, 'In Time', 'In  Time');
       const outRaw    = getCol(r, 'Out Time', 'Out  Time');
       const invTime   = getCol(r, 'Invoice Time');
       const invNo     = getCol(r, 'Invoice No');
-      const veh       = (getCol(r, 'Vehile No', 'Vehicle No', 'Vehicle') || '-').toString().trim();
+      const veh       = (getCol(r, 'U_VSPV', 'Vehile No', 'Vehicle No', 'Vehicle') || '-').toString().trim();
       const emp       = (getCol(r, 'Sales Employee Name', 'Sales Employee') || '-').toString().trim();
       const branch    = (getCol(r, 'Branch') || '-').toString().trim();
-      const wbStatus  = (getCol(r, 'Weigh Bridge Status', 'Status') || '').toString().trim();
+      const wbStatus  = (getCol(r, 'U_VSPLWBST', 'Weigh Bridge Status', 'Status') || '').toString().trim();
       const netWt     = parseFloat(getCol(r, 'Net Weight')) || 0;
 
       const inMin  = toMin(inRaw);
