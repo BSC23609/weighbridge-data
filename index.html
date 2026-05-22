@@ -232,7 +232,7 @@
 
 <script>
 // ============ CONFIG ============
-const DATA_URL = 'data.xlsx';
+const DATA_URL = 'Copy of data.xlsx';
 const SHEET_NAME_PREFERRED = null;  // null = auto-pick first sheet
 const MAX_VALID_MINUTES = 720;       // 12 hours - drop rows above this from KPIs/charts (data entry errors)
 
@@ -251,7 +251,7 @@ async function loadData() {
   statusEl.style.color = 'var(--muted)';
 
   try {
-    const url = `${DATA_URL}?t=${Date.now()}`;
+    const url = `${encodeURIComponent(DATA_URL)}?t=${Date.now()}`;
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
 
