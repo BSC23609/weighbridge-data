@@ -41,7 +41,21 @@
   .meta { text-align: right; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; }
   .meta b { color: var(--ink); font-weight: 600; }
 
-  .filters { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 20px; margin-bottom: 22px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 18px; align-items: start; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  .filters { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 20px; margin-bottom: 22px; display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 18px; align-items: start; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+
+  /* Date range bar */
+  .daterange { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 16px 20px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  .dr-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .dr-chip { background: var(--panel-2); border: 1px solid transparent; color: var(--ink); padding: 7px 14px; border-radius: 2px; font-size: 11px; cursor: pointer; font-family: inherit; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; transition: all .15s; }
+  .dr-chip:hover { border-color: var(--accent); }
+  .dr-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  .dr-pickers { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-left: auto; }
+  .dr-field { display: flex; flex-direction: column; gap: 4px; }
+  .dr-field label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-weight: 600; }
+  .dr-field select, .dr-field input[type="date"] { background: var(--panel-2); border: 1px solid transparent; color: var(--ink); padding: 7px 10px; font-family: inherit; font-size: 12px; border-radius: 2px; outline: none; min-width: 110px; }
+  .dr-field select:focus, .dr-field input[type="date"]:focus { border-color: var(--accent); background: var(--panel); }
+  .dr-apply { background: var(--accent-3); border: 1px solid var(--accent-3); color: #fff; padding: 7px 14px; font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; cursor: pointer; border-radius: 2px; font-weight: 600; transition: all .15s; height: 32px; }
+  .dr-apply:hover { background: #005a8c; border-color: #005a8c; }
   .filter-group label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin-bottom: 10px; font-weight: 600;}
   .chip-row { display: flex; flex-wrap: wrap; gap: 6px; max-height: 96px; overflow-y: auto; padding-right: 4px; }
   .chip-row::-webkit-scrollbar { width: 6px; }
@@ -96,11 +110,13 @@
   @media(max-width:1100px) {
     .filters { grid-template-columns: 1fr 1fr; }
     .kpis { grid-template-columns: repeat(3, 1fr); }
+    .dr-pickers { margin-left: 0; width: 100%; }
   }
   @media(max-width:760px) {
     .grid, .grid-3 { grid-template-columns: 1fr; }
     .filters { grid-template-columns: 1fr; }
     .kpis { grid-template-columns: repeat(2, 1fr); }
+    .daterange { flex-direction: column; align-items: stretch; }
   }
 </style>
 </head>
@@ -122,11 +138,45 @@
     </div>
   </header>
 
-  <div class="filters">
-    <div class="filter-group">
-      <label>📅 Date</label>
-      <div class="chip-row" id="dateChips"></div>
+  <!-- Date range bar -->
+  <div class="daterange">
+    <div class="dr-shortcuts">
+      <button class="dr-chip" data-shortcut="today">Today</button>
+      <button class="dr-chip" data-shortcut="week">This Week</button>
+      <button class="dr-chip active" data-shortcut="month">This Month</button>
+      <button class="dr-chip" data-shortcut="last30">Last 30 Days</button>
+      <button class="dr-chip" data-shortcut="custom">Custom</button>
     </div>
+    <div class="dr-pickers">
+      <div class="dr-field">
+        <label>Month</label>
+        <select id="monthPicker">
+          <option value="">—</option>
+          <option value="0">January</option><option value="1">February</option>
+          <option value="2">March</option><option value="3">April</option>
+          <option value="4">May</option><option value="5">June</option>
+          <option value="6">July</option><option value="7">August</option>
+          <option value="8">September</option><option value="9">October</option>
+          <option value="10">November</option><option value="11">December</option>
+        </select>
+      </div>
+      <div class="dr-field">
+        <label>Year</label>
+        <select id="yearPicker"><option value="">—</option></select>
+      </div>
+      <div class="dr-field">
+        <label>From</label>
+        <input type="date" id="fromDate"/>
+      </div>
+      <div class="dr-field">
+        <label>To</label>
+        <input type="date" id="toDate"/>
+      </div>
+      <button class="dr-apply" id="applyRange">Apply</button>
+    </div>
+  </div>
+
+  <div class="filters">
     <div class="filter-group">
       <label>🏢 Customer</label>
       <input type="text" class="search-input" id="custSearch" placeholder="Search..."/>
@@ -328,6 +378,26 @@ function formatDate(raw) {
   return String(raw);
 }
 
+// Returns a JS Date at local midnight, for range filtering.
+function parseToJSDate(raw) {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'number') {
+    const d = new Date(Math.round((raw - 25569) * 86400 * 1000));
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  }
+  if (typeof raw === 'string') {
+    const m = raw.trim().match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
+    if (m) {
+      const day = parseInt(m[1], 10);
+      const mon = parseInt(m[2], 10) - 1;
+      const yrRaw = parseInt(m[3], 10);
+      const yr = m[3].length === 2 ? 2000 + yrRaw : yrRaw;
+      return new Date(yr, mon, day);
+    }
+  }
+  return null;
+}
+
 // Sort key for "DD-MMM-YY"
 function dateSortKey(s) {
   const parts = String(s).split('-');
@@ -433,6 +503,7 @@ function parseRows(rows) {
       return {
         date: formatDate(dateRaw),
         dateKey: dateSortKey(formatDate(dateRaw)),
+        dateJS: parseToJSDate(dateRaw),
         veh,
         customer,
         emp,
@@ -462,13 +533,85 @@ function parseRows(rows) {
 
 // ============ STATE ============
 const STATE = {
-  selectedDates: new Set(),
+  // Date range filter (inclusive). null = unbounded.
+  fromDate: null,           // JS Date at local midnight
+  toDate:   null,           // JS Date at local midnight
+  activeShortcut: 'month',  // 'today' | 'week' | 'month' | 'last30' | 'custom'
+
   selectedCusts: new Set(),
   selectedEmps: new Set(),
   selectedBranches: new Set(),
   custFilter: '',
   empFilter: ''
 };
+
+// ---------- Date helpers ----------
+function startOfDay(d)   { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function startOfWeek(d)  { const x = startOfDay(d); const dow = x.getDay(); x.setDate(x.getDate() - dow); return x; } // Sunday-start
+function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function endOfMonth(d)   { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+function addDays(d, n)   { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+
+function ymd(d) {
+  // Format Date -> YYYY-MM-DD for <input type="date">
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function parseYMD(s) {
+  if (!s) return null;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+}
+
+function applyShortcut(name) {
+  const now = new Date();
+  STATE.activeShortcut = name;
+  if (name === 'today') {
+    STATE.fromDate = startOfDay(now);
+    STATE.toDate   = startOfDay(now);
+  } else if (name === 'week') {
+    STATE.fromDate = startOfWeek(now);
+    STATE.toDate   = startOfDay(now);
+  } else if (name === 'month') {
+    STATE.fromDate = startOfMonth(now);
+    STATE.toDate   = endOfMonth(now);
+  } else if (name === 'last30') {
+    STATE.fromDate = addDays(startOfDay(now), -29);
+    STATE.toDate   = startOfDay(now);
+  } else if (name === 'custom') {
+    // leave whatever the user has typed
+  }
+  syncDateUI();
+}
+
+function syncDateUI() {
+  // Reflect STATE into the date inputs and Month/Year dropdowns
+  document.getElementById('fromDate').value = ymd(STATE.fromDate);
+  document.getElementById('toDate').value   = ymd(STATE.toDate);
+
+  // If the range is exactly one whole month, set Month + Year; otherwise clear them
+  const f = STATE.fromDate, t = STATE.toDate;
+  let monthVal = '', yearVal = '';
+  if (f && t
+      && f.getDate() === 1
+      && t.getDate() === endOfMonth(t).getDate()
+      && f.getMonth() === t.getMonth()
+      && f.getFullYear() === t.getFullYear()) {
+    monthVal = String(f.getMonth());
+    yearVal  = String(f.getFullYear());
+  }
+  document.getElementById('monthPicker').value = monthVal;
+  document.getElementById('yearPicker').value  = yearVal;
+
+  // Highlight the active shortcut
+  document.querySelectorAll('.dr-chip').forEach(b => {
+    b.classList.toggle('active', b.dataset.shortcut === STATE.activeShortcut);
+  });
+}
 
 // ============ CHIPS ============
 function renderChips(container, values, selectedSet, filterText) {
@@ -496,7 +639,10 @@ function renderChips(container, values, selectedSet, filterText) {
 // ============ FILTER ============
 function filtered() {
   return DATA.filter(d => {
-    if (STATE.selectedDates.size && !STATE.selectedDates.has(d.date)) return false;
+    if (d.dateJS) {
+      if (STATE.fromDate && d.dateJS < STATE.fromDate) return false;
+      if (STATE.toDate   && d.dateJS > STATE.toDate)   return false;
+    }
     if (STATE.selectedCusts.size && !STATE.selectedCusts.has(d.customer)) return false;
     if (STATE.selectedEmps.size && !STATE.selectedEmps.has(d.emp)) return false;
     if (STATE.selectedBranches.size && !STATE.selectedBranches.has(d.branch)) return false;
@@ -555,8 +701,7 @@ function buildCharts() {
 function update() {
   if (DATA.length === 0) return;
 
-  // Re-render chips against full universe
-  renderChips(document.getElementById('dateChips'),   ALL_DATES,    STATE.selectedDates, '');
+  // Re-render chips against full universe (date is handled by the range bar above)
   renderChips(document.getElementById('custChips'),   ALL_CUSTS,    STATE.selectedCusts, STATE.custFilter);
   renderChips(document.getElementById('empChips'),    ALL_EMPS,     STATE.selectedEmps,  STATE.empFilter);
   renderChips(document.getElementById('branchChips'), ALL_BRANCHES, STATE.selectedBranches, '');
@@ -581,8 +726,11 @@ function update() {
   document.getElementById('kpiTonnage').textContent = rd2(rows.reduce((a,r)=>a+(r.netWt||0),0));
 
   document.getElementById('totalTrips').textContent = rows.length;
+  const fmtRng = d => d ? `${String(d.getDate()).padStart(2,'0')}-${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}-${String(d.getFullYear()).slice(-2)}` : '—';
   document.getElementById('dateRange').textContent =
-    ALL_DATES.length ? `${ALL_DATES[0]} → ${ALL_DATES[ALL_DATES.length-1]}` : '—';
+    (STATE.fromDate || STATE.toDate)
+      ? `${fmtRng(STATE.fromDate)} → ${fmtRng(STATE.toDate)}`
+      : (ALL_DATES.length ? `${ALL_DATES[0]} → ${ALL_DATES[ALL_DATES.length-1]}` : '—');
 
   // ===== Daily time chart =====
   const byDate = {};
@@ -681,7 +829,6 @@ document.getElementById('empSearch').addEventListener('input', e => {
   renderChips(document.getElementById('empChips'), ALL_EMPS, STATE.selectedEmps, STATE.empFilter);
 });
 document.getElementById('resetBtn').addEventListener('click', () => {
-  STATE.selectedDates.clear();
   STATE.selectedCusts.clear();
   STATE.selectedEmps.clear();
   STATE.selectedBranches.clear();
@@ -689,9 +836,70 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   STATE.empFilter  = '';
   document.getElementById('custSearch').value = '';
   document.getElementById('empSearch').value  = '';
+  applyShortcut('month');     // back to current month
   update();
 });
 document.getElementById('refreshBtn').addEventListener('click', loadData);
+
+// Shortcut buttons
+document.querySelectorAll('.dr-chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyShortcut(btn.dataset.shortcut);
+    update();
+  });
+});
+
+// Month/Year dropdowns — picking a month auto-applies that whole month
+function applyMonthYear() {
+  const mSel = document.getElementById('monthPicker').value;
+  const ySel = document.getElementById('yearPicker').value;
+  if (mSel === '' || ySel === '') return;
+  const month = parseInt(mSel, 10);
+  const year  = parseInt(ySel, 10);
+  STATE.fromDate = new Date(year, month, 1);
+  STATE.toDate   = new Date(year, month + 1, 0);
+  STATE.activeShortcut = 'custom';
+  syncDateUI();
+  update();
+}
+document.getElementById('monthPicker').addEventListener('change', applyMonthYear);
+document.getElementById('yearPicker').addEventListener('change', applyMonthYear);
+
+// Apply button for From/To dates
+document.getElementById('applyRange').addEventListener('click', () => {
+  const f = parseYMD(document.getElementById('fromDate').value);
+  const t = parseYMD(document.getElementById('toDate').value);
+  if (!f && !t) return;
+  STATE.fromDate = f;
+  STATE.toDate   = t || f;
+  STATE.activeShortcut = 'custom';
+  syncDateUI();
+  update();
+});
+
+// Populate Year dropdown from data + default to current month on first load
+function populateYearOptions() {
+  const yrs = new Set();
+  const now = new Date();
+  yrs.add(now.getFullYear());
+  DATA.forEach(d => { if (d.dateJS) yrs.add(d.dateJS.getFullYear()); });
+  const sorted = [...yrs].sort((a,b) => b - a);
+  const sel = document.getElementById('yearPicker');
+  sel.innerHTML = '<option value="">—</option>' +
+    sorted.map(y => `<option value="${y}">${y}</option>`).join('');
+}
+
+// Hook the post-load initialization into parseRows by overriding update on first call:
+const _origUpdate = update;
+let _firstUpdateDone = false;
+update = function() {
+  if (!_firstUpdateDone && DATA.length > 0) {
+    _firstUpdateDone = true;
+    populateYearOptions();
+    applyShortcut('month');
+  }
+  _origUpdate();
+};
 
 // Initial load
 loadData();

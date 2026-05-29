@@ -1,0 +1,13 @@
+# Never commit credentials or local logs
+config.ini
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS junk
+Thumbs.db
+.DS_Store
