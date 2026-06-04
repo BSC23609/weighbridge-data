@@ -282,8 +282,8 @@
 
 <script>
 // ============ CONFIG ============
-const DATA_URL = 'Copy of data.xlsx';
-const SHEET_NAME_PREFERRED = 'Sheet2';  // data lives on Sheet2; falls back to first sheet if not found
+const DATA_URL = 'data.csv';
+const SHEET_NAME_PREFERRED = null;  // not applicable for CSV; kept for compatibility
 const MAX_VALID_MINUTES = 720;       // 12 hours - drop rows above this from KPIs/charts (data entry errors)
 
 let DATA = [];
@@ -305,16 +305,27 @@ async function loadData() {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
 
-    const buf = await res.arrayBuffer();
-    const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+    const isCsv = /\.csv($|\?)/i.test(DATA_URL);
+    let rows;
 
-    const sheetName = SHEET_NAME_PREFERRED && wb.Sheets[SHEET_NAME_PREFERRED]
-      ? SHEET_NAME_PREFERRED
-      : wb.SheetNames[0];
-    const ws = wb.Sheets[sheetName];
-
-    // Read as objects keyed by header row, so column order doesn't matter
-    const rows = XLSX.utils.sheet_to_json(ws, { raw: true, defval: null });
+    if (isCsv) {
+      // CSV path: read as text, parse with SheetJS
+      let text = await res.text();
+      // Strip UTF-8 BOM if present so the first header key doesn't get corrupted
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      const wb = XLSX.read(text, { type: 'string', cellDates: false, raw: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, { raw: true, defval: null });
+    } else {
+      // XLSX path
+      const buf = await res.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+      const sheetName = SHEET_NAME_PREFERRED && wb.Sheets[SHEET_NAME_PREFERRED]
+        ? SHEET_NAME_PREFERRED
+        : wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      rows = XLSX.utils.sheet_to_json(ws, { raw: true, defval: null });
+    }
 
     parseRows(rows);
 
@@ -322,7 +333,7 @@ async function loadData() {
     document.getElementById('lastUpdated').textContent =
       now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    statusEl.innerText = `Data loaded · sheet "${sheetName}"`;
+    statusEl.innerText = `Data loaded · ${rows.length} rows`;
     statusEl.style.color = 'green';
   } catch (err) {
     console.error(err);
@@ -352,9 +363,18 @@ function getCol(row, ...candidates) {
 function formatDate(raw) {
   if (raw == null || raw === '') return 'Unknown';
 
-  // Already DD-MM-YYYY text
+  // ISO YYYY-MM-DD (what PowerShell CSV produces)
   if (typeof raw === 'string') {
-    const m = raw.trim().match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
+    let m = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/);
+    if (m) {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const day = m[3];
+      const mon = months[parseInt(m[2], 10) - 1] || '???';
+      const yr  = m[1].slice(-2);
+      return `${day}-${mon}-${yr}`;
+    }
+    // DD-MM-YYYY or DD/MM/YYYY text
+    m = raw.trim().match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
     if (m) {
       const day = m[1].padStart(2, '0');
       const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -386,7 +406,13 @@ function parseToJSDate(raw) {
     return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   }
   if (typeof raw === 'string') {
-    const m = raw.trim().match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
+    // ISO YYYY-MM-DD (PowerShell CSV)
+    let m = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/);
+    if (m) {
+      return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+    }
+    // DD-MM-YYYY / DD/MM/YYYY
+    m = raw.trim().match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
     if (m) {
       const day = parseInt(m[1], 10);
       const mon = parseInt(m[2], 10) - 1;
