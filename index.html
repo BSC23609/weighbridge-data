@@ -41,7 +41,7 @@
   .meta { text-align: right; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; }
   .meta b { color: var(--ink); font-weight: 600; }
 
-  .filters { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 20px; margin-bottom: 22px; display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 18px; align-items: start; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  .filters { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 20px; margin-bottom: 22px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 18px; align-items: start; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 
   /* Date range bar */
   .daterange { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 16px 20px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
@@ -188,6 +188,11 @@
       <div class="chip-row" id="empChips"></div>
     </div>
     <div class="filter-group">
+      <label>📦 Ship To</label>
+      <input type="text" class="search-input" id="shipSearch" placeholder="Search..."/>
+      <div class="chip-row" id="shipChips"></div>
+    </div>
+    <div class="filter-group">
       <label>📍 Branch</label>
       <div class="chip-row" id="branchChips"></div>
     </div>
@@ -262,6 +267,7 @@
             <th>Status</th>
             <th>Vehicle</th>
             <th>Customer</th>
+            <th>Ship To</th>
             <th>Sales Emp</th>
             <th>Branch</th>
             <th>In</th>
@@ -291,6 +297,7 @@ let ALL_DATES = [];
 let ALL_CUSTS = [];
 let ALL_EMPS  = [];
 let ALL_BRANCHES = [];
+let ALL_SHIPS = [];
 
 // ============ FETCH & PARSE ============
 async function loadData() {
@@ -507,6 +514,7 @@ function parseRows(rows) {
       const veh       = (getCol(r, 'U_VSPV', 'Vehile No', 'Vehicle No', 'Vehicle') || '-').toString().trim();
       const emp       = (getCol(r, 'Sales Employee Name', 'Sales Employee') || '-').toString().trim();
       const branch    = (getCol(r, 'Branch') || '-').toString().trim();
+      const shipTo    = (getCol(r, 'Ship To Name', 'ShipToName', 'Ship To') || '').toString().trim();
       const wbStatus  = (getCol(r, 'U_VSPLWBST', 'Weigh Bridge Status', 'Status') || '').toString().trim();
       const netWt     = parseFloat(getCol(r, 'Net Weight')) || 0;
 
@@ -534,6 +542,7 @@ function parseRows(rows) {
         customer,
         emp,
         branch,
+        shipTo,
         wbStatus: isPending ? 'Pending' : 'Completed',
         inTime:  formatTime(inRaw),
         outTime: formatTime(outRaw),
@@ -552,6 +561,7 @@ function parseRows(rows) {
   ALL_CUSTS    = [...new Set(DATA.map(d => d.customer))].filter(Boolean).sort();
   ALL_EMPS     = [...new Set(DATA.map(d => d.emp))].filter(e => e && e !== '-').sort();
   ALL_BRANCHES = [...new Set(DATA.map(d => d.branch))].filter(b => b && b !== '-').sort();
+  ALL_SHIPS    = [...new Set(DATA.map(d => d.shipTo))].filter(s => s && s.length > 0).sort();
 
   if (!dailyChart) buildCharts();
   update();
@@ -567,8 +577,10 @@ const STATE = {
   selectedCusts: new Set(),
   selectedEmps: new Set(),
   selectedBranches: new Set(),
+  selectedShips: new Set(),
   custFilter: '',
-  empFilter: ''
+  empFilter: '',
+  shipFilter: ''
 };
 
 // ---------- Date helpers ----------
@@ -672,6 +684,7 @@ function filtered() {
     if (STATE.selectedCusts.size && !STATE.selectedCusts.has(d.customer)) return false;
     if (STATE.selectedEmps.size && !STATE.selectedEmps.has(d.emp)) return false;
     if (STATE.selectedBranches.size && !STATE.selectedBranches.has(d.branch)) return false;
+    if (STATE.selectedShips.size && !STATE.selectedShips.has(d.shipTo)) return false;
     return true;
   });
 }
@@ -730,6 +743,7 @@ function update() {
   // Re-render chips against full universe (date is handled by the range bar above)
   renderChips(document.getElementById('custChips'),   ALL_CUSTS,    STATE.selectedCusts, STATE.custFilter);
   renderChips(document.getElementById('empChips'),    ALL_EMPS,     STATE.selectedEmps,  STATE.empFilter);
+  renderChips(document.getElementById('shipChips'),   ALL_SHIPS,    STATE.selectedShips, STATE.shipFilter);
   renderChips(document.getElementById('branchChips'), ALL_BRANCHES, STATE.selectedBranches, '');
 
   const rows = filtered();
@@ -829,6 +843,7 @@ function update() {
       <td class="${statusCls}">${r.wbStatus}</td>
       <td><span class="badge">${r.veh}</span></td>
       <td>${r.customer}</td>
+      <td>${r.shipTo || '—'}</td>
       <td>${r.emp}</td>
       <td>${r.branch}</td>
       <td>${r.inTime || '—'}</td>
@@ -854,14 +869,21 @@ document.getElementById('empSearch').addEventListener('input', e => {
   STATE.empFilter = e.target.value;
   renderChips(document.getElementById('empChips'), ALL_EMPS, STATE.selectedEmps, STATE.empFilter);
 });
+document.getElementById('shipSearch').addEventListener('input', e => {
+  STATE.shipFilter = e.target.value;
+  renderChips(document.getElementById('shipChips'), ALL_SHIPS, STATE.selectedShips, STATE.shipFilter);
+});
 document.getElementById('resetBtn').addEventListener('click', () => {
   STATE.selectedCusts.clear();
   STATE.selectedEmps.clear();
   STATE.selectedBranches.clear();
+  STATE.selectedShips.clear();
   STATE.custFilter = '';
   STATE.empFilter  = '';
+  STATE.shipFilter = '';
   document.getElementById('custSearch').value = '';
   document.getElementById('empSearch').value  = '';
+  document.getElementById('shipSearch').value = '';
   applyShortcut('month');     // back to current month
   update();
 });
