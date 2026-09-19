@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dispatch update — Bharat Steel</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#0069A6;--deep:#004B78;--pale:#E6F0F7;--ink:#1F1F1F;--line:#D5DEE6;--muted:#5B6773;--ok:#1B5E20;--okbg:#D5F0D8;--err:#9C0006;--errbg:#F8D7DA}
+*{box-sizing:border-box}
+body{margin:0;background:#F3F6F9;color:var(--ink);font-family:Barlow,"Segoe UI",Arial,sans-serif;font-size:17px;line-height:1.4}
+header{background:var(--ink);color:#fff;padding:14px 16px}
+header h1{font-family:"Barlow Condensed",Arial,sans-serif;font-size:26px;margin:0;line-height:1}
+header .sub{color:#B8D4E8;font-size:14px;margin-top:4px}
+main{max-width:560px;margin:0 auto;padding:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.card h2{font-family:"Barlow Condensed",Arial,sans-serif;font-size:21px;margin:0 0 8px}
+.coil{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.coil:first-of-type{border-top:0}
+.coil input[type=checkbox]{width:24px;height:24px;margin-top:2px;accent-color:var(--blue)}
+.coil .nm{font-weight:600;font-size:18px}
+.coil .dt{color:var(--muted);font-size:14px}
+.pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:13px;font-weight:600;margin-top:4px}
+.s-ul{background:#FFE0B2;color:#7A3E00}.s-ld{background:#FFF3B0;color:#6B5300}.s-tr{background:#CFE3F5;color:#0B4A73}.s-ar{background:var(--okbg);color:var(--ok)}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 4px;color:var(--deep)}
+input[type=text],input[type=date]{width:100%;font:17px Barlow,Arial,sans-serif;padding:12px;border:1px solid #9AA8B5;border-radius:6px;background:#fff}
+input:focus{outline:3px solid #B8D4E8;border-color:var(--blue)}
+button{width:100%;font:600 18px Barlow,Arial,sans-serif;padding:14px;border:0;border-radius:8px;background:var(--blue);color:#fff;margin-top:14px;cursor:pointer}
+button.alt{background:#fff;color:var(--deep);border:2px solid var(--blue)}
+button.ok{background:#2E9E4F}
+button:disabled{opacity:.5}
+.msg{padding:10px 12px;border-radius:6px;margin-bottom:12px;font-size:15px;display:none}
+.msg.err{display:block;background:var(--errbg);color:var(--err)}.msg.ok{display:block;background:var(--okbg);color:var(--ok)}
+.hint{color:var(--muted);font-size:14px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tabs button{margin:0;padding:11px;font-size:16px;background:#fff;color:var(--deep);border:2px solid var(--line)}
+.tabs button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.grp{border-top:3px solid var(--blue);margin-top:8px}
+.grp h3{font-family:"Barlow Condensed",Arial,sans-serif;font-size:19px;margin:10px 0 4px;color:var(--deep)}
+.row2{display:grid;grid-template-columns:1fr 100px 44px;gap:8px;align-items:end;margin-top:8px}
+.row2 button{margin:0;padding:12px 0;background:#fff;color:var(--err);border:1px solid var(--line);font-size:20px;line-height:1}
+select{width:100%;font:17px Barlow,Arial,sans-serif;padding:12px;border:1px solid #9AA8B5;border-radius:6px;background:#fff}
+.small{font-size:13px;color:var(--muted)}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:10px 16px 30px}
+</style>
+</head>
+<body>
+<header><h1>Bharat Steel (Chennai) — Dispatch update</h1><div class="sub" id="sub">Loading…</div></header>
+<main>
+  <div id="msg" class="msg"></div>
+  <div class="tabs" id="tabs" hidden><button type="button" id="tabMine" class="on">My dispatches</button><button type="button" id="tabNew">+ New dispatch</button></div>
+
+  <!-- ===== My dispatches (both modes) ===== -->
+  <div id="viewMine">
+    <div class="card">
+      <h2>Coils assigned to you</h2>
+      <div class="hint">Tick the coils that are on the same truck, then use the buttons below.</div>
+      <div id="coils"></div>
+    </div>
+    <div class="card" id="loadCard">
+      <h2>1. Truck details</h2>
+      <label>Vehicle number</label><input type="text" id="veh" placeholder="TN 20 BX 7719" autocapitalize="characters" autocomplete="off">
+      <label>LR / consignment number</label><input type="text" id="lr" placeholder="LR-118261" autocomplete="off">
+      <label>Loading date</label><input type="date" id="dd">
+      <label>Expected arrival at destination</label><input type="date" id="ea">
+      <button id="btnLoad" type="button">Save truck details (Loaded)</button>
+    </div>
+    <div class="card"><h2>2. On the way</h2><div class="hint">Tap when the truck leaves the NMDC gate.</div><button id="btnGate" type="button" class="alt">Truck has left NMDC (In-Transit)</button></div>
+    <div class="card"><h2>3. Delivered</h2><div class="hint">Tap after unloading at the destination.</div><button id="btnDel" type="button" class="ok">Delivered at destination</button></div>
+  </div>
+
+  <!-- ===== New dispatch (transporter standing link only) ===== -->
+  <div id="viewNew" hidden>
+    <div class="card">
+      <h2>New dispatch from NMDC</h2>
+      <label>NMDC DO / invoice number</label><input type="text" id="nDo" placeholder="NMDC/DO/26-27/4430" autocomplete="off">
+      <label>NMDC SO number <span class="small">(if on the DO)</span></label><input type="text" id="nSo" placeholder="SO-26-10890" autocomplete="off">
+      <label>Deliver to</label><select id="nDest"></select>
+      <label>Coils on this DO</label>
+      <div id="nCoils"></div>
+      <button type="button" class="alt" id="nAdd" style="margin-top:8px">+ Add another coil</button>
+    </div>
+    <div class="card">
+      <h2>Truck details <span class="small">(fill now if already loaded; otherwise later)</span></h2>
+      <label>Vehicle number</label><input type="text" id="nVeh" placeholder="TN 20 BX 7719" autocapitalize="characters" autocomplete="off">
+      <label>LR / consignment number</label><input type="text" id="nLr" autocomplete="off">
+      <label>Loading date</label><input type="date" id="nDd">
+      <label>Expected arrival</label><input type="date" id="nEa">
+      <button id="btnCreate" type="button">Save dispatch</button>
+    </div>
+  </div>
+</main>
+<footer>Questions? WhatsApp Bharat Steel on +91 95006 80093.</footer>
+<script>
+const token = location.pathname.split("/").filter(Boolean).pop();
+const $ = s => document.querySelector(s);
+const CLS = {"Under Loading":"s-ul","Loaded":"s-ld","In-Transit":"s-tr","Arrived":"s-ar"};
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = v => v ? new Date(String(v).slice(0,10)+"T00:00:00").toLocaleDateString("en-IN",{day:"2-digit",month:"short"}) : "";
+const todayISO = () => new Date().toISOString().slice(0,10);
+let groups = [], mode = "dispatch", dests = [];
+function msg(t, ok){ const m=$("#msg"); m.textContent=t||""; m.className="msg"+(t?(ok?" ok":" err"):""); if(t) window.scrollTo({top:0,behavior:"smooth"}); }
+function coilRow(c){
+  const done = c.status === "Arrived";
+  return `<label class="coil"><input type="checkbox" value="${esc(c.coil_no)}" ${done?"disabled":""}>
+    <div><div class="nm">${esc(c.coil_no)}${c.form==="CTL Sheet"?' <span class="small">(CTL)</span>':""}</div>
+    <div class="dt">${c.weight?Number(c.weight).toFixed(3)+" MT · ":""}Deliver to: ${esc(c.destination||"—")}</div>
+    <span class="pill ${CLS[c.status]||""}">${esc(c.status)}</span>${c.vehicle_no?`<span class="dt"> · ${esc(c.vehicle_no)}${c.lr_no?" · LR "+esc(c.lr_no):""}${c.expected_arrival?" · exp. "+fmt(c.expected_arrival):""}${c.actual_arrival?" · delivered "+fmt(c.actual_arrival):""}</span>`:""}</div></label>`;
+}
+function render(){
+  const box = $("#coils"); box.innerHTML = "";
+  if(!groups.length){ box.innerHTML = `<div class="hint" style="padding:12px 0">Nothing assigned yet.${mode==="transporter"?" Use “+ New dispatch” to log a pickup.":""}</div>`; }
+  groups.forEach(g => {
+    const open = g.coils.filter(c => c.status !== "Arrived").length;
+    box.insertAdjacentHTML("beforeend", `<div class="grp"><h3>DO ${esc(g.do_no)} <span class="small">· ${g.coils.length} coil${g.coils.length===1?"":"s"}${open?"":" · all delivered"}</span></h3>${g.coils.map(coilRow).join("")}</div>`);
+  });
+  // preselect the first open group
+  const firstOpen = groups.find(g => g.coils.some(c => c.status !== "Arrived"));
+  if(firstOpen){ firstOpen.coils.filter(c => c.status !== "Arrived").forEach(c => { const i = box.querySelector(`input[value="${CSS.escape(c.coil_no)}"]`); if(i) i.checked = true; });
+    const f = firstOpen.coils.find(c => c.vehicle_no); if(f && !$("#veh").value){ $("#veh").value = f.vehicle_no||""; $("#lr").value = f.lr_no||""; $("#dd").value=(f.dispatch_date||"").slice(0,10); $("#ea").value=(f.expected_arrival||"").slice(0,10);} }
+  if(!$("#dd").value) $("#dd").value = todayISO();
+}
+const selected = () => [...document.querySelectorAll("#coils input:checked")].map(i => i.value);
+async function post(body){
+  const r = await fetch("/api/tform", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({token, ...body})});
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error || "Failed (" + r.status + ")");
+  return j;
+}
+async function act(btn, body, okText){
+  const sel = selected(); if(!sel.length) return msg("Tick at least one coil first.");
+  btn.disabled = true;
+  try { const j = await post({...body, coils: sel}); groups = j.groups; render(); msg(okText, true); }
+  catch(e){ msg(e.message); } finally { btn.disabled = false; }
+}
+$("#btnLoad").onclick = e => act(e.target, {action:"load", vehicle_no:$("#veh").value, lr_no:$("#lr").value, dispatch_date:$("#dd").value, expected_arrival:$("#ea").value}, "Truck details saved. Bharat Steel can see them now.");
+$("#btnGate").onclick = e => { if(confirm("Confirm the truck has left NMDC?")) act(e.target, {action:"gateout"}, "Marked In-Transit. Safe journey."); };
+$("#btnDel").onclick = e => { if(confirm("Confirm the coils are delivered and unloaded?")) act(e.target, {action:"delivered"}, "Marked delivered. Thank you."); };
+
+/* ---- new dispatch (mode 2) ---- */
+function addCoilRow(){ $("#nCoils").insertAdjacentHTML("beforeend", `<div class="row2"><div><input type="text" placeholder="Coil no" class="cno" autocapitalize="characters" autocomplete="off"></div><div><input type="text" inputmode="decimal" placeholder="MT" class="cwt"></div><button type="button" class="rm" title="Remove">×</button></div>`); }
+$("#nAdd").onclick = addCoilRow;
+$("#nCoils").addEventListener("click", e => { const b = e.target.closest(".rm"); if(b && $("#nCoils").children.length > 1) b.parentElement.remove(); });
+$("#btnCreate").onclick = async e => {
+  const coils = [...document.querySelectorAll("#nCoils .row2")].map(r => ({coil_no:r.querySelector(".cno").value, weight:r.querySelector(".cwt").value.replace(",",".")})).filter(c => c.coil_no.trim());
+  e.target.disabled = true;
+  try{
+    const j = await post({action:"create", do_no:$("#nDo").value, so_no:$("#nSo").value, destination:$("#nDest").value, coils, vehicle_no:$("#nVeh").value, lr_no:$("#nLr").value, dispatch_date:$("#nDd").value, expected_arrival:$("#nEa").value});
+    groups = j.groups; ["#nDo","#nSo","#nVeh","#nLr","#nEa"].forEach(s => $(s).value = ""); $("#nCoils").innerHTML = ""; addCoilRow();
+    showTab("mine"); render(); msg("Dispatch saved. You can update its status from “My dispatches”.", true);
+  }catch(err){ msg(err.message); } finally { e.target.disabled = false; }
+};
+function showTab(t){ $("#viewMine").hidden = t !== "mine"; $("#viewNew").hidden = t !== "new"; $("#tabMine").classList.toggle("on", t==="mine"); $("#tabNew").classList.toggle("on", t==="new"); msg(""); }
+$("#tabMine").onclick = () => showTab("mine"); $("#tabNew").onclick = () => showTab("new");
+
+(async () => {
+  try {
+    const r = await fetch("/api/tform?token=" + encodeURIComponent(token)); const j = await r.json();
+    if(!r.ok) throw new Error(j.error || "Link not valid");
+    mode = j.mode; groups = j.groups; dests = j.destinations || [];
+    $("#sub").textContent = mode === "transporter" ? `${j.name}` : `${j.name || ""} · DO ${j.do_no || "-"}`;
+    if(mode === "transporter"){ $("#tabs").hidden = false; $("#nDest").innerHTML = `<option value="">Select…</option>` + dests.map(d => `<option>${esc(d)}</option>`).join(""); addCoilRow(); $("#nDd").value = todayISO(); }
+    render();
+  } catch(e){ $("#sub").textContent = ""; msg(e.message); document.querySelectorAll("button").forEach(b => b.disabled = true); }
+})();
+</script>
+</body>
+</html>
